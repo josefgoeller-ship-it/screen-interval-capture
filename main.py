@@ -1,4 +1,17 @@
-"""Screen Interval Capture — Windows GUI for timed full-desktop screenshots."""
+"""Windows GUI that saves full-desktop PNGs on a timer and groups them into sessions.
+
+Entry is `python main.py` (`ScreenIntervalApp`). Capture uses mss
+monitors[0] (the virtual desktop) and Pillow, on a daemon worker thread.
+Filenames are local YYYY-MM-DD_HH-MM-SS.png. `unique_path` adds _001–_999
+on collisions, then raises OSError; those suffixes are not milliseconds.
+`load_config` writes defaults only when config.json is missing. Bad JSON
+or a non-numeric interval returns defaults in memory and does not rewrite
+the file. Interval 0 or a negative int is returned as-is. `save_config`
+replaces the file with two keys and is not atomic. Analyze splits sessions
+when filename gaps exceed 1.5 times the interval currently in the form.
+Status updates from the worker go through `after`. Stop does not wait for
+the in-flight grab.
+"""
 
 from __future__ import annotations
 
@@ -38,11 +51,16 @@ def load_config() -> dict:
         with CONFIG_PATH.open(encoding="utf-8") as f:
             data = json.load(f)
     except (OSError, json.JSONDecodeError):
-        save_config(defaults)
         return defaults
+    if not isinstance(data, dict):
+        return defaults
+    try:
+        interval = int(data.get("interval_seconds", defaults["interval_seconds"]))
+    except (ValueError, TypeError):
+        interval = defaults["interval_seconds"]
     return {
         "output_folder": str(data.get("output_folder") or defaults["output_folder"]),
-        "interval_seconds": int(data.get("interval_seconds") or defaults["interval_seconds"]),
+        "interval_seconds": interval,
     }
 
 

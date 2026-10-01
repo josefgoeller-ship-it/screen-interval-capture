@@ -1,0 +1,19 @@
+Security review: screen-interval-capture
+Date: 2026-10-01
+Scope: first-party source and exposure. Not a penetration test.
+
+Findings
+- [note] Full-desktop screenshots are stored as ordinary PNG files
+  Where: main.py (capture_screen); config.json
+  Issue: On a timer the app grabs the virtual desktop (all monitors) and writes PNGs into the configured folder. There is no encryption and no upload code. config.json points at a folder under this project. No capture PNGs were in the tree.
+  Impact: Whatever is on screen, including passwords or messages, is saved on disk for as long as those files remain. A synced or shared folder would copy them.
+  Fix: Keep the output folder off synced drives and out of git. Stop the timer when the screen shows secrets.
+  Status: left for owner decision
+
+Checked and not an issue
+- No network client, no subprocess, and no credential file. The folder path comes from local config or the folder picker.
+- Filenames are timestamps plus a numeric suffix. Analysis only reads PNG names that match that pattern.
+- Interval is stored as an integer and is not bounded. A zero or negative value is a local resource issue, not a remote one.
+
+Intentional or product decisions
+- Capturing the full desktop on an interval is the purpose of the tool. The note above is the exposure that comes with that.
